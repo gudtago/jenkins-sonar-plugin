@@ -1,4 +1,22 @@
 /*
+ * Jenkins Plugin for SonarQube, open source software quality management tool.
+ * mailto:contact AT sonarsource DOT com
+ *
+ * Jenkins Plugin for SonarQube is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * Jenkins Plugin for SonarQube is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+/*
  * Sonar is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -26,12 +44,12 @@ import hudson.maven.local_repo.LocalRepositoryLocator;
 import hudson.model.BuildListener;
 import hudson.model.AbstractBuild;
 import hudson.model.Computer;
-import hudson.model.Hudson;
 import hudson.model.JDK;
 import hudson.plugins.sonar.SonarInstallation;
 import hudson.plugins.sonar.SonarPublisher;
 import hudson.tasks.Maven;
 import hudson.util.ArgumentListBuilder;
+import jenkins.model.Jenkins;
 import jenkins.mvn.GlobalSettingsProvider;
 import jenkins.mvn.SettingsProvider;
 import org.apache.commons.lang.StringUtils;
@@ -55,9 +73,9 @@ public final class SonarMaven extends Maven {
   private final LocalRepositoryLocator locaRepository;
 
   public SonarMaven(String additionalProperties, String name, String pom, String jvmOptions, LocalRepositoryLocator locaRepository,
-      SonarPublisher publisher, BuildListener listener, JDK jdk, SettingsProvider settings, GlobalSettingsProvider globalSettings) {
+    SonarPublisher publisher, BuildListener listener, JDK jdk, SettingsProvider settings, GlobalSettingsProvider globalSettings) {
     super(getTarget(publisher.getInstallation()), name, pom, "", jvmOptions, false,
-        settings, globalSettings);
+      settings, globalSettings);
     this.additionalProperties = additionalProperties;
     this.locaRepository = locaRepository;
     this.publisher = publisher;
@@ -72,7 +90,7 @@ public final class SonarMaven extends Maven {
     if (StringUtils.isBlank(installation.getMojoVersion())) {
       return TARGET + " sonar:sonar";
     } else {
-      return TARGET + " org.codehaus.mojo:sonar-maven-plugin:" + installation.getMojoVersion() + ":sonar";
+      return TARGET + " " + SonarUtils.getMavenGoal(installation.getMojoVersion());
     }
   }
 
@@ -82,21 +100,21 @@ public final class SonarMaven extends Maven {
 
   @Override
   protected void wrapUpArguments(ArgumentListBuilder args, String normalizedTarget, AbstractBuild<?, ?> build, Launcher launcher,
-      BuildListener listener) throws IOException, InterruptedException {
+    BuildListener listener) throws IOException, InterruptedException {
 
     args.addTokenized(additionalProperties);
 
     ExtendedArgumentListBuilder argsBuilder = new ExtendedArgumentListBuilder(args, launcher.isUnix());
-    argsBuilder.append("sonar.jdbc.driver", getInstallation().getDatabaseDriver());
     argsBuilder.append("sonar.jdbc.url", getInstallation().getDatabaseUrl());
     argsBuilder.appendMasked("sonar.jdbc.username", getInstallation().getDatabaseLogin());
     argsBuilder.appendMasked("sonar.jdbc.password", getInstallation().getDatabasePassword());
     argsBuilder.append("sonar.host.url", getInstallation().getServerUrl());
 
     argsBuilder.append("sonar.branch", publisher.getBranch());
-    argsBuilder.append("sonar.language", publisher.getLanguage());
 
-    if (StringUtils.isNotBlank(getInstallation().getSonarLogin())) {
+    if (StringUtils.isNotBlank(getInstallation().getServerAuthenticationToken())) {
+      argsBuilder.appendMasked("sonar.login", getInstallation().getServerAuthenticationToken());
+    } else if (StringUtils.isNotBlank(getInstallation().getSonarLogin())) {
       argsBuilder.appendMasked("sonar.login", getInstallation().getSonarLogin());
       argsBuilder.appendMasked("sonar.password", getInstallation().getSonarPassword());
     }
@@ -106,8 +124,7 @@ public final class SonarMaven extends Maven {
       if (localRepo != null) {
         args.add("-Dmaven.repo.local=" + localRepo.getRemote());
       }
-    }
-    else if (locaRepository instanceof PerJobLocalRepositoryLocator) {
+    } else if (locaRepository instanceof PerJobLocalRepositoryLocator) {
       FilePath workspace = build.getWorkspace();
       if (workspace != null) {
         args.add("-Dmaven.repo.local=" + workspace.child(".repository"));
@@ -117,31 +134,31 @@ public final class SonarMaven extends Maven {
 
   @Override
   public DescriptorImpl getDescriptor() {
-    return (DescriptorImpl) Hudson.getInstance().getDescriptorOrDie(Maven.class);
+    return (DescriptorImpl) Jenkins.getInstance().getDescriptorOrDie(Maven.class);
   }
 
   public static boolean executeMaven(
-      AbstractBuild<?, ?> build,
-      Launcher launcher,
-      BuildListener listener,
-      String mavenName,
-      String pom,
-      SonarInstallation sonarInstallation,
-      SonarPublisher sonarPublisher,
-      JDK jdk,
-      SettingsProvider settings,
-      GlobalSettingsProvider globalSettings,
-      boolean usesLocalRepository) throws IOException, InterruptedException {
+    AbstractBuild<?, ?> build,
+    Launcher launcher,
+    BuildListener listener,
+    String mavenName,
+    String pom,
+    SonarInstallation sonarInstallation,
+    SonarPublisher sonarPublisher,
+    JDK jdk,
+    SettingsProvider settings,
+    GlobalSettingsProvider globalSettings,
+    boolean usesLocalRepository) throws IOException, InterruptedException {
     MavenModuleSet mavenModuleProject = sonarPublisher.getMavenProject(build);
     EnvVars envVars = build.getEnvironment(listener);
     /**
      * MAVEN_OPTS
      */
-    String jvmOptions = sonarPublisher.getMavenOpts();
-    if (StringUtils.isEmpty(jvmOptions)
+    String mvnOptions = sonarPublisher.getMavenOpts();
+    if (StringUtils.isEmpty(mvnOptions)
       && mavenModuleProject != null
       && StringUtils.isNotEmpty(mavenModuleProject.getMavenOpts())) {
-      jvmOptions = mavenModuleProject.getMavenOpts();
+      mvnOptions = mavenModuleProject.getMavenOpts();
     }
     // Private Repository and Alternate Settings
     LocalRepositoryLocator locaRepositoryToUse = usesLocalRepository ? new PerJobLocalRepositoryLocator() : new DefaultLocalRepositoryLocator();
@@ -154,16 +171,18 @@ public final class SonarMaven extends Maven {
       globalSettingsToUse = mavenModuleProject.getGlobalSettings();
     }
     // Other properties
-    String installationProperties = sonarInstallation.getAdditionalProperties();
+    String additionalArguments = sonarInstallation.getAdditionalProperties();
+    String analysisProperties = StringUtils.join(sonarInstallation.getAdditionalAnalysisPropertiesUnix(), ' ');
     String jobProperties = envVars.expand(sonarPublisher.getJobAdditionalProperties());
-    String aditionalProperties = ""
-      + (StringUtils.isNotBlank(installationProperties) ? installationProperties : "") + " "
+    String additionalProperties = ""
+      + (StringUtils.isNotBlank(additionalArguments) ? additionalArguments : "") + " "
+      + (StringUtils.isNotBlank(analysisProperties) ? analysisProperties : "") + " "
       + (StringUtils.isNotBlank(jobProperties) ? jobProperties : "");
     // Execute Maven
     // SONARPLUGINS-487
-    pom = build.getModuleRoot().child(pom).getRemote();
-    return new SonarMaven(aditionalProperties, mavenName, pom, jvmOptions, locaRepositoryToUse, sonarPublisher, listener, jdk, settingsToUse, globalSettingsToUse)
-        .perform(build, launcher, listener);
+    String pomPath = build.getModuleRoot().child(pom).getRemote();
+    return new SonarMaven(additionalProperties, mavenName, pomPath, mvnOptions, locaRepositoryToUse, sonarPublisher, listener, jdk, settingsToUse, globalSettingsToUse)
+      .perform(build, launcher, listener);
   }
 
   @Override

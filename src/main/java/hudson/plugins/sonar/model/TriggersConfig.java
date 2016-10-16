@@ -1,4 +1,22 @@
 /*
+ * Jenkins Plugin for SonarQube, open source software quality management tool.
+ * mailto:contact AT sonarsource DOT com
+ *
+ * Jenkins Plugin for SonarQube is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * Jenkins Plugin for SonarQube is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+/*
  * Sonar is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -17,26 +35,27 @@ package hudson.plugins.sonar.model;
 
 import hudson.EnvVars;
 import hudson.Util;
-import hudson.model.BuildListener;
-import hudson.model.Result;
 import hudson.model.AbstractBuild;
+import hudson.model.BuildListener;
 import hudson.model.Cause;
+import hudson.model.Result;
 import hudson.plugins.sonar.Messages;
 import hudson.triggers.SCMTrigger;
 import hudson.util.VariableResolver;
-import org.kohsuke.stapler.DataBoundConstructor;
-
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import org.kohsuke.stapler.DataBoundConstructor;
 
 /**
  * @author Evgeny Mandrikov
  * @since 1.2
  */
 public class TriggersConfig implements Serializable {
+
+  private static final long serialVersionUID = 1L;
 
   private boolean skipScmCause;
 
@@ -48,6 +67,9 @@ public class TriggersConfig implements Serializable {
   private String envVar;
 
   public TriggersConfig() {
+    skipScmCause = false;
+    skipUpstreamCause = false;
+    envVar = null;
   }
 
   @DataBoundConstructor
@@ -87,7 +109,7 @@ public class TriggersConfig implements Serializable {
     if (result != null && result.isWorseThan(Result.UNSTABLE)) {
       // skip analysis if build failed
       // unstable means that build completed, but there were some test failures, which is not critical for analysis
-      return Messages.SonarPublisher_BadBuildStatus(build.getResult().toString());
+      return Messages.SonarPublisher_BadBuildStatus(result.toString());
     }
 
     // skip analysis by environment variable or build parameter
@@ -105,15 +127,16 @@ public class TriggersConfig implements Serializable {
       }
     }
 
-    // skip analysis, when all causes from blacklist
     List<Cause> causes = new ArrayList<Cause>(build.getCauses());
-    Iterator<Cause> iter = causes.iterator();
-    while (iter.hasNext()) {
-      Cause cause = iter.next();
-      if (SCMTrigger.SCMTriggerCause.class.isInstance(cause) && isSkipScmCause()) {
-        iter.remove();
-      } else if (Cause.UpstreamCause.class.isInstance(cause) && isSkipUpstreamCause()) {
-        iter.remove();
+
+    // skip analysis, when all causes from blacklist
+    if (isSkipScmCause() || isSkipUpstreamCause()) {
+      Iterator<Cause> iter = causes.iterator();
+      while (iter.hasNext()) {
+        Cause cause = iter.next();
+        if ((isSkipScmCause() && SCMTrigger.SCMTriggerCause.class.isInstance(cause)) || (isSkipUpstreamCause() && Cause.UpstreamCause.class.isInstance(cause))) {
+          iter.remove();
+        }
       }
     }
     return causes.isEmpty() ? Messages.Skipping_Sonar_analysis() : null;

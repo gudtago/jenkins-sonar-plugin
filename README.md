@@ -1,27 +1,35 @@
-Jenkins Sonar Plugin
+Jenkins SonarQube Plugin
 ====================
 
-Project homepage: http://docs.codehaus.org/display/SONAR/Hudson+and+Jenkins+Plugin
+[![Build Status](https://travis-ci.org/SonarSource/sonar-scanner-jenkins.svg?branch=master)](https://travis-ci.org/SonarSource/sonar-scanner-jenkins)
 
-Continuous inspection: http://nemo.sonarsource.org/dashboard/index/org.jvnet.hudson.plugins:sonar
+Project homepage: http://redirect.sonarsource.com/plugins/jenkins.html
 
-Issue tracking: http://jira.codehaus.org/browse/SONARPLUGINS/component/13726
+Continuous inspection: http://nemo.sonarsource.org/dashboard/index/org.jenkins-ci.plugins:sonar
+
+Issue tracking: http://jira.sonarsource.com/browse/SONARJNKNS
 
 
 If you're wanting to make changes, please clone the git repository at
 
 git://github.com/SonarSource/jenkins-sonar-plugin.git
 
-Before making release please contact current maintainers ( dev@sonar.codehaus.org ).
+With jenkins-sonar-plugin, you can configure SonarQube instances and run a SonarQube Scanner analysis in several ways:
+* By injecting the SonarQube configuration as environment variables and using them in any job step (such as Maven, Ant, Gradle, ...);
+* Using the Sonar Scanner job;
+* Using SonarQube Scanner for MSBuild's 'begin analysis' and 'end analysis' jobs;
 
-Sonar Runner is managed as an installable tool. List of available versions is retrieved
+
+'SonarQube Scanner' and 'SonarQube Scanner for MSBuild' are managed as installable tools. List of available versions is retrieved
 automatically by Jenkins/Hudson from a json file hosted on their respective update site:
 * http://hudson-ci.org/updates/hudson.plugins.sonar.SonarRunnerInstaller.json
 * http://mirrors.jenkins-ci.org/updates/updates/hudson.plugins.sonar.SonarRunnerInstaller.json
+* http://mirrors.jenkins-ci.org/updates/updates/hudson.plugins.sonar.MsBuildSonarQubeRunnerInstaller.json
 
-For Jenkins the file is automatically updated when a new version of Sonar Runner is published
-thanks to a crawler written in groovy:
-https://github.com/jenkinsci/backend-crawler/blob/master/sonarrunner.groovy
+For Jenkins, the files are automatically updated when a new version of Sonar Scanner or SonarQube Scanner for MSBuild is published,
+thanks to crawlers written in groovy:
+* https://github.com/jenkinsci/backend-crawler/blob/master/sonarrunner.groovy
+* https://github.com/jenkinsci/backend-crawler/blob/master/msbuildsonarquberunner.groovy
 
-For Hudson it seems it is a manual process and we should ask on the hudson dev mailing list
+For Hudson, it seems it is a manual process and we should ask on the hudson dev mailing list
 for someone to update the json file.

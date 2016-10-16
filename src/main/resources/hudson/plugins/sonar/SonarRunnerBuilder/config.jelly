@@ -1,16 +1,17 @@
+<?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
 
-  <!-- Sonar Installation -->
+  <!-- SonarQube Installation -->
   <j:set var="sonars" value="${descriptor.getSonarInstallations()}"/>
   <j:if test="${empty(sonars)}">
-    <!-- no Sonar installation is configured, so warn the user now -->
+    <!-- no SonarQube installation is configured, so warn the user now -->
     <f:entry title="${%SonarInstallation}">
       <div class="error">${%SonarInstallation.error(rootURL)}</div>
     </f:entry>
   </j:if>
   <j:if test="${sonars.size() gt 1}">
     <!-- choice not necessary if there's no choice -->
-    <f:entry title="${%SonarInstallation}" help="/plugin/sonar/help-sonar-installation.html">
+    <f:entry title="${%SonarInstallation}: " help="/plugin/sonar/help-sonar-installation.html">
       <select class="setting-input" name="sonar.installationName">
         <j:forEach var="inst" items="${sonars}">
           <f:option value="${inst.name}" selected="${inst.name==instance.installationName}">${inst.name}</f:option>
@@ -27,31 +28,35 @@
   <!-- JDK -->
   <j:set var="jdks" value="${app.JDKs}" />
   <f:entry title="JDK" description="${%JDKDesc}" help="/plugin/sonar/help-sonar-jdk.html">
-    <select class="setting-input validated" name="jdk" checkUrl="'${rootURL}/defaultJDKCheck?value='+this.value">
+    <select class="setting-input validated" name="sonar.jdk" checkUrl="'${rootURL}/defaultJDKCheck?value='+this.value">
       <option>${%InheritFromJob}</option>
       <j:forEach var="inst" items="${jdks}">
-        <f:option selected="${inst.name==instance.JDK.name}" value="${inst.name}">${inst.name}</f:option>
+        <f:option selected="${inst.name==instance.jdkFromJenkins.name}" value="${inst.name}">${inst.name}</f:option>
       </j:forEach>
     </select>
   </f:entry>
 
-  <!-- Sonar Runner -->
-  <j:set var="runners" value="${descriptor.getSonarRunnerInstallations()}" />
-  <j:if test="${empty(runners)}">
-    <!-- no runner installation is configured. this will be an error, so warn the user now -->
-    <f:entry title="${%SonarRunner}">
+  <!-- SonarQube Scanner -->
+  <j:set var="scanners" value="${descriptor.getSonarRunnerInstallations()}" />
+  <j:set var="globalToolConfigUrl" value="${descriptor.getGlobalToolConfigUrl()}" />
+  <j:if test="${empty(scanners)}">
+    <!-- no scanner installation is configured. this will be an error, so warn the user now -->
+    <f:entry title="${%SonarScanner}">
       <div class="error">
-        ${%Sonar Runner Version.error.1}&lt;br>
-        ${%Sonar Runner Version.error.2(rootURL)}
+        ${%Sonar Scanner Version.error.1}&lt;br>
+        <j:choose>
+        <j:when test="${descriptor.BEFORE_V2}">${%Sonar Scanner Version.error.2.beforeV2(globalToolConfigUrl)}</j:when>
+        <j:otherwise>${%Sonar Scanner Version.error.2(globalToolConfigUrl)}</j:otherwise>
+        </j:choose>
       </div>
     </f:entry>
   </j:if>
-  <j:if test="${runners.size() gt 1}">
+  <j:if test="${scanners.size() gt 1}">
     <!-- choice not necessary if there's no choice -->
-    <f:entry title="${%SonarRunner}" help="/plugin/sonar/help-runner-installation.html">
-      <select class="setting-input" name="sonar.sonarRunnerName">
+    <f:entry title="${%SonarScanner}" help="/plugin/sonar/help-runner-installation.html">
+      <select class="setting-input" name="sonar.sonarScannerName">
         <j:forEach var="inst" items="${descriptor.getSonarRunnerInstallations()}">
-          <f:option selected="${inst.name==instance.sonarRunnerName}" value="${inst.name}">${inst.name}</f:option>
+          <f:option selected="${inst.name==instance.sonarScannerName}" value="${inst.name}">${inst.name}</f:option>
         </j:forEach>
       </select>
     </f:entry>
@@ -61,9 +66,14 @@
     <f:textbox />
   </f:entry>
 
-  <f:entry title="${%ProjectProperties}" field="properties" help="/plugin/sonar/help-runner-properties.html">
+  <f:entry title="${%AnalysisProperties}" field="properties" help="/plugin/sonar/help-runner-properties.html">
     <f:textarea />
   </f:entry>
+  
+  <f:entry title="${%AdditionalArguments}" field="additionalArguments" help="/plugin/sonar/help-runner-additional-args.html">
+    <f:expandableTextbox />
+  </f:entry>
+  
 
   <!-- The Java options to be used -->
   <f:entry title="${%JVMOptions}" field="javaOpts" help="/plugin/sonar/help-runner-jvm-opts.html">
